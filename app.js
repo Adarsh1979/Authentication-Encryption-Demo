@@ -3,7 +3,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+// const encrypt = require("mongoose-encryption");
+// const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
+
+
 
 const app = express();
 
@@ -18,7 +23,7 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});    // this is code for using the mongoose-encryption
+// userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});    // this is code for using the mongoose-encryption
 
 
 const User = new mongoose.model("User", userSchema);
@@ -37,18 +42,24 @@ app.get("/register", function(req, res){
 });
 
 app.post("/register", function(req, res){
-    const newUser = new User({
-        email: req.body.username,
-        password: req.body.password
+
+
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+        newUser.save(function(err){
+            if(!err){
+                res.render("secrets");
+            }
+            else{
+                console.log(err);
+            }
+        });
     });
-    newUser.save(function(err){
-        if(!err){
-            res.render("secrets");
-        }
-        else{
-            console.log(err);
-        }
-    });
+    
+
 });
 
 app.post("/login", function(req, res){
@@ -61,10 +72,17 @@ app.post("/login", function(req, res){
         }
         else{
             if(foundUser){
-                if(foundUser.password === password){
-                    // console.log(foundUser.password);     // here we can verify the decrypted password which is done by mongoose-encryption during findOne() method. 
-                    res.render("secrets");
-                }
+                // if(foundUser.password === password){
+                //     console.log(foundUser.password);     // here we can verify the decrypted password which is done by mongoose-encryption during findOne() method. 
+                //     res.render("secrets");
+                // }
+
+                bcrypt.compare(password, foundUser.password, function(err, result) {
+                    if(result){
+                        res.render("secrets");
+                    }
+                });
+
             }
         }
     });
